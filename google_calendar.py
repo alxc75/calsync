@@ -69,7 +69,7 @@ def get_events(service, time_min, time_max):
         print(f"An error occurred while fetching events: {error}")
         return []
 
-def update_event(service, event_id, summary, start_time_str, end_time_str, date, user_email, time_zone):
+def update_event(service, event_id, summary, start_time_str, end_time_str, date, user_email, time_zone, description):
     """Updates an existing event in the Google Calendar."""
 
     start_datetime = datetime.datetime.combine(date, datetime.datetime.strptime(start_time_str, "%I:%M %p").time())
@@ -88,6 +88,7 @@ def update_event(service, event_id, summary, start_time_str, end_time_str, date,
         'attendees': [
             {'email': user_email},
         ],
+        'description': description,
     }
     try:
         updated_event = service.events().update(
@@ -110,7 +111,7 @@ def delete_event(service, event_id):
         print(f"An error occurred while deleting event ID {event_id}: {error}")
 
 
-def create_event(service, summary, start_time_str, end_time_str, date, user_email, time_zone):
+def create_event(service, summary, start_time_str, end_time_str, date, user_email, time_zone, description):
     """Creates an event in the Google Calendar."""
 
     start_datetime = datetime.datetime.combine(date, datetime.datetime.strptime(start_time_str, "%I:%M %p").time())
@@ -129,6 +130,7 @@ def create_event(service, summary, start_time_str, end_time_str, date, user_emai
         'attendees': [
             {'email': user_email},
         ],
+        'description': description,
     }
 
     event = service.events().insert(calendarId='primary', body=event, sendUpdates='all').execute()

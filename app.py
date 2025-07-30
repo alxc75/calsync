@@ -36,8 +36,39 @@ async def get_meetings(freq='week'):
         print(f"Found {len(meeting_elements)} meetings this {freq}.")
 
         for meeting_element in meeting_elements:
-            button = await meeting_element.query_selector("div[role='button']")
-            if button:
+            try:
+                button = await meeting_element.query_selector("div[role='button']")
+                if not button:
+                    continue
+
+                # 1. Click event to open preview
+                await button.click()
+
+                # 2. Click "View event" to open full details
+                view_event_selector = "button[aria-label='View event']"
+                await page.wait_for_selector(view_event_selector, timeout=5000)
+                view_event_button = await page.query_selector(view_event_selector)
+                if view_event_button:
+                    await view_event_button.click()
+
+                # 3. Scrape description from full details view
+                description_selector = "div[id^='UniqueMessageBody_']"
+                await page.wait_for_selector(description_selector, timeout=5000)
+                description_element = await page.query_selector(description_selector)
+                description = await description_element.inner_html() if description_element else ""
+
+                # Clean the HTML description
+                if description:
+                    # Replace paragraphs and divs with line breaks for cleaner formatting
+                    description = re.sub(r'<p.*?>', '<br>', description, flags=re.IGNORECASE)
+                    description = description.replace('</p>', '')
+                    description = description.replace('<div>', '<br>').replace('</div>', '')
+                    # Collapse multiple line breaks into a single one
+                    description = re.sub(r'(<br\s*/?>\s*)+', '<br>', description)
+                    # Remove leading/trailing line breaks and whitespace
+                    description = description.strip('<br>').strip()
+
+                # Scrape original event details from the button's aria-label
                 aria_label = await button.get_attribute("aria-label")
                 if aria_label:
                     # Regex to extract title, start time, end time, and date
@@ -52,8 +83,20 @@ async def get_meetings(freq='week'):
                             "title": title,
                             "date": date_str,
                             "start_time": start_time,
-                            "end_time": end_time
+                            "end_time": end_time,
+                            "description": description
                         })
+
+            except Exception as e:
+                print(f"Could not process an event, skipping. Error: {e}")
+            finally:
+                # 4. Close the details view to go back
+                close_button = await page.query_selector("button[aria-label='Close']")
+                if close_button:
+                    await close_button.click()
+                    # Add a small delay to ensure the modal is closed before the next iteration
+                    await page.wait_for_timeout(500)
+
 
         await context.close()
     return meetings_data
@@ -116,6 +159,7 @@ def update_meetings(meetings_data):
         start_time_str = meeting["start_time"]
         end_time_str = meeting["end_time"]
         date_str = meeting["date"]
+        description = meeting.get("description", "") # Get description, default to empty string
 
         try:
             meeting_date = datetime.strptime(date_str, "%A, %B %d, %Y").date()
@@ -139,7 +183,8 @@ def update_meetings(meetings_data):
             # Compare dates and times (ignoring timezone for a direct comparison)
             if (existing_start_dt.date() != scraped_start_dt.date() or
                 existing_start_dt.time() != scraped_start_dt.time() or
-                existing_end_dt.time() != scraped_end_dt.time()):
+                existing_end_dt.time() != scraped_end_dt.time() or
+                existing_event.get('description', '') != description):
 
                 print(f"Event '{title}' has changed. Updating in Google Calendar...")
                 update_event(
@@ -150,7 +195,8 @@ def update_meetings(meetings_data):
                     end_time_str,
                     meeting_date,
                     user_email,
-                    user_timezone
+                    user_timezone,
+                    description
                 )
             else:
                 print(f"Event '{title}' already exists and is up to date. Skipping.")
@@ -158,7 +204,7 @@ def update_meetings(meetings_data):
 
         # If the event is not cancelled and does not exist, create it.
         print(f"Creating Google Calendar event for '{title}' on {meeting_date}...")
-        create_event(calendar_service, title, start_time_str, end_time_str, meeting_date, user_email, user_timezone)
+        create_event(calendar_service, title, start_time_str, end_time_str, meeting_date, user_email, user_timezone, description)
 
 async def main():
     """Main function to run the calendar sync process."""
