@@ -2,8 +2,8 @@ import asyncio
 import re
 import os
 from playwright.async_api import async_playwright
-from datetime import datetime
-from google_calendar import get_calendar_service, create_event
+from datetime import datetime, time, timedelta
+from google_calendar import get_calendar_service, create_event, get_events
 import json
 
 async def get_meetings(freq='week'):
@@ -71,9 +71,32 @@ def update_meetings(meetings_data):
         print("Failed to authenticate with Google Calendar. Exiting.")
         return
 
-    print(f"\nFound {len(meetings_data)} meetings to sync.")
+    if not meetings_data:
+        print("No meetings to sync.")
+        return
+
+    # Determine the date range of the scraped meetings
+    dates = [datetime.strptime(m["date"], "%A, %B %d, %Y").date() for m in meetings_data]
+    min_date = min(dates)
+    max_date = max(dates)
+
+    # Fetch existing Google Calendar events for the determined date range
+    time_min = datetime.combine(min_date, time.min).isoformat() + 'Z'  # 'Z' indicates UTC
+    time_max = datetime.combine(max_date, time.max).isoformat() + 'Z'
+
+    print(f"\nFetching existing Google Calendar events from {min_date} to {max_date} to check for duplicates...")
+    existing_events = get_events(calendar_service, time_min, time_max)
+    existing_event_titles = {event['summary'] for event in existing_events}
+    print(f"Found {len(existing_event_titles)} existing events.")
+
+    print(f"\nProcessing {len(meetings_data)} scraped meetings...")
     for meeting in meetings_data:
         title = meeting["title"]
+
+        if title in existing_event_titles:
+            print(f"Event '{title}' already exists in Google Calendar. Skipping.")
+            continue
+
         start_time = meeting["start_time"]
         end_time = meeting["end_time"]
         date_str = meeting["date"]

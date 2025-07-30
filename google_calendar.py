@@ -8,7 +8,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = ["https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/calendar.readonly", "openid"]
+SCOPES = ["https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/userinfo.email", "openid", "https://www.googleapis.com/auth/calendar.readonly"]
 
 
 def get_calendar_service():
@@ -53,6 +53,21 @@ def get_calendar_service():
     except HttpError as error:
         print(f"An error occurred: {error}")
         return None, None, None
+
+def get_events(service, time_min, time_max):
+    """Fetch events from Google Calendar within a given time range."""
+    try:
+        events_result = service.events().list(
+            calendarId='primary',
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        return events_result.get('items', [])
+    except HttpError as error:
+        print(f"An error occurred while fetching events: {error}")
+        return []
 
 def create_event(service, summary, start_time_str, end_time_str, date, user_email, time_zone):
     """Creates an event in the Google Calendar."""
