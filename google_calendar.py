@@ -69,6 +69,38 @@ def get_events(service, time_min, time_max):
         print(f"An error occurred while fetching events: {error}")
         return []
 
+def update_event(service, event_id, summary, start_time_str, end_time_str, date, user_email, time_zone):
+    """Updates an existing event in the Google Calendar."""
+
+    start_datetime = datetime.datetime.combine(date, datetime.datetime.strptime(start_time_str, "%I:%M %p").time())
+    end_datetime = datetime.datetime.combine(date, datetime.datetime.strptime(end_time_str, "%I:%M %p").time())
+
+    event_body = {
+        'summary': summary,
+        'start': {
+            'dateTime': start_datetime.isoformat(),
+            'timeZone': time_zone,
+        },
+        'end': {
+            'dateTime': end_datetime.isoformat(),
+            'timeZone': time_zone,
+        },
+        'attendees': [
+            {'email': user_email},
+        ],
+    }
+    try:
+        updated_event = service.events().update(
+            calendarId='primary',
+            eventId=event_id,
+            body=event_body,
+            sendUpdates='all'
+        ).execute()
+        print(f"Event updated: {updated_event.get('htmlLink')}")
+    except HttpError as error:
+        print(f"An error occurred while updating event '{summary}': {error}")
+
+
 def create_event(service, summary, start_time_str, end_time_str, date, user_email, time_zone):
     """Creates an event in the Google Calendar."""
 

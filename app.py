@@ -3,7 +3,7 @@ import re
 import os
 from playwright.async_api import async_playwright
 from datetime import datetime, time, timedelta
-from google_calendar import get_calendar_service, create_event, get_events
+from google_calendar import get_calendar_service, create_event, get_events, update_event
 import json
 
 async def get_meetings(freq='week'):
@@ -86,30 +86,58 @@ def update_meetings(meetings_data):
 
     print(f"\nFetching existing Google Calendar events from {min_date} to {max_date} to check for duplicates...")
     existing_events = get_events(calendar_service, time_min, time_max)
-    existing_event_titles = {event['summary'] for event in existing_events}
-    print(f"Found {len(existing_event_titles)} existing events.")
+    # Create a dictionary mapping event titles to the full event object for easy lookup
+    existing_events_dict = {event['summary']: event for event in existing_events}
+    print(f"Found {len(existing_events_dict)} existing events.")
 
     print(f"\nProcessing {len(meetings_data)} scraped meetings...")
     for meeting in meetings_data:
         title = meeting["title"]
-
-        if title in existing_event_titles:
-            print(f"Event '{title}' already exists in Google Calendar. Skipping.")
-            continue
-
-        start_time = meeting["start_time"]
-        end_time = meeting["end_time"]
+        start_time_str = meeting["start_time"]
+        end_time_str = meeting["end_time"]
         date_str = meeting["date"]
 
         try:
-            # The date format from outlook is like 'Wednesday, July 30, 2025'
             meeting_date = datetime.strptime(date_str, "%A, %B %d, %Y").date()
-        except ValueError:
-            print(f"Could not parse date: {date_str}. Skipping event '{title}'.")
+            start_time_obj = datetime.strptime(start_time_str, "%I:%M %p").time()
+            end_time_obj = datetime.strptime(end_time_str, "%I:%M %p").time()
+        except ValueError as e:
+            print(f"Could not parse date or time for event '{title}': {e}. Skipping.")
+            continue
+
+        if title in existing_events_dict:
+            existing_event = existing_events_dict[title]
+
+            # Parse existing event's start and end times
+            existing_start_dt = datetime.fromisoformat(existing_event['start'].get('dateTime').replace('Z', '+00:00'))
+            existing_end_dt = datetime.fromisoformat(existing_event['end'].get('dateTime').replace('Z', '+00:00'))
+
+            # Combine scraped date and time
+            scraped_start_dt = datetime.combine(meeting_date, start_time_obj)
+            scraped_end_dt = datetime.combine(meeting_date, end_time_obj)
+
+            # Compare dates and times (ignoring timezone for a direct comparison)
+            if (existing_start_dt.date() != scraped_start_dt.date() or
+                existing_start_dt.time() != scraped_start_dt.time() or
+                existing_end_dt.time() != scraped_end_dt.time()):
+
+                print(f"Event '{title}' has changed. Updating in Google Calendar...")
+                update_event(
+                    calendar_service,
+                    existing_event['id'],
+                    title,
+                    start_time_str,
+                    end_time_str,
+                    meeting_date,
+                    user_email,
+                    user_timezone
+                )
+            else:
+                print(f"Event '{title}' already exists and is up to date. Skipping.")
             continue
 
         print(f"Creating Google Calendar event for '{title}' on {meeting_date}...")
-        create_event(calendar_service, title, start_time, end_time, meeting_date, user_email, user_timezone)
+        create_event(calendar_service, title, start_time_str, end_time_str, meeting_date, user_email, user_timezone)
 
 async def main():
     """Main function to run the calendar sync process."""
