@@ -1,6 +1,7 @@
 .calsync
 user_data/
 __pycache__/
+ignore.txt
 
 # Google OAuth
 token.json

@@ -120,10 +120,24 @@ def update_meetings(meetings_data):
         print("No meetings to sync.")
         return
 
+    # Load ignore list
+    ignore_list = []
+    if os.path.exists("ignore.txt"):
+        with open("ignore.txt", "r") as f:
+            ignore_list = [line.strip() for line in f if line.strip()]
+        if ignore_list:
+            print(f"\nLoaded {len(ignore_list)} strings from ignore.txt. Meetings containing these strings will be ignored.")
+
     # Determine the date range of the scraped meetings
-    dates = [datetime.strptime(m["date"], "%A, %B %d, %Y").date() for m in meetings_data]
-    min_date = min(dates)
-    max_date = max(dates)
+    try:
+        dates = [datetime.strptime(m["date"], "%A, %B %d, %Y").date() for m in meetings_data]
+        min_date = min(dates)
+        max_date = max(dates)
+    except (ValueError, KeyError) as e:
+        print(f"Could not determine date range from meetings data: {e}. Cannot fetch existing events.")
+        # Decide if you want to exit or continue without checking for duplicates
+        return
+
 
     # Fetch existing Google Calendar events for the determined date range
     time_min = datetime.combine(min_date, time.min).isoformat() + 'Z'  # 'Z' indicates UTC
@@ -138,6 +152,11 @@ def update_meetings(meetings_data):
     print(f"\nProcessing {len(meetings_data)} scraped meetings...")
     for meeting in meetings_data:
         title = meeting["title"]
+
+        # Check if the meeting title contains any string from the ignore list
+        if any(ignore_str in title for ignore_str in ignore_list):
+            print(f"Event '{title}' contains an ignored keyword. Skipping.")
+            continue
 
         # Handle cancelled events
         cancelled_prefixes = ["Annulé : ", "Cancelled: "]
