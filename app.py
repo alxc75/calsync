@@ -59,14 +59,16 @@ async def get_meetings(freq='week'):
 
                 # Clean the HTML description
                 if description:
-                    # Replace paragraphs and divs with line breaks for cleaner formatting
-                    description = re.sub(r'<p.*?>', '<br>', description, flags=re.IGNORECASE)
-                    description = description.replace('</p>', '')
-                    description = description.replace('<div>', '<br>').replace('</div>', '')
-                    # Collapse multiple line breaks into a single one
-                    description = re.sub(r'(<br\s*/?>\s*)+', '<br>', description)
-                    # Remove leading/trailing line breaks and whitespace
-                    description = description.strip('<br>').strip()
+                    # 1. Replace all div and p tags (and their closing tags) with a single line break.
+                    # This handles complex tags like <div class="..."> or <p style="...">
+                    description = re.sub(r'</?p.*?>', '<br>', description, flags=re.IGNORECASE)
+                    description = re.sub(r'</?div.*?>', '<br>', description, flags=re.IGNORECASE)
+
+                    # 2. Collapse any instance of multiple (two or more) line breaks into just one.
+                    description = re.sub(r'(<br\s*/?>\s*){2,}', '<br>', description)
+
+                    # 3. Remove any leading or trailing line breaks that might be left.
+                    description = description.strip().strip('<br>').strip()
 
                 # Scrape original event details from the button's aria-label
                 aria_label = await button.get_attribute("aria-label")
@@ -208,8 +210,8 @@ def update_meetings(meetings_data):
 
 async def main():
     """Main function to run the calendar sync process."""
-    meetings = await get_meetings('day')
-    print(json.dumps(meetings, indent=4, ensure_ascii=False))
+    meetings = await get_meetings('week')
+    # print(json.dumps(meetings, indent=4, ensure_ascii=False))
     if meetings:
         update_meetings(meetings)
     else:
