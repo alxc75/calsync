@@ -3,7 +3,7 @@ import re
 import os
 from playwright.async_api import async_playwright
 from datetime import datetime, time, timedelta
-from google_calendar import get_calendar_service, create_event, get_events, update_event
+from google_calendar import get_calendar_service, create_event, get_events, update_event, delete_event
 import json
 
 async def get_meetings(freq='week'):
@@ -93,6 +93,26 @@ def update_meetings(meetings_data):
     print(f"\nProcessing {len(meetings_data)} scraped meetings...")
     for meeting in meetings_data:
         title = meeting["title"]
+
+        # Handle cancelled events
+        cancelled_prefixes = ["Annulé : ", "Cancelled: "]
+        original_title = title
+        is_cancelled = False
+        for prefix in cancelled_prefixes:
+            if title.startswith(prefix):
+                original_title = title.replace(prefix, "").strip()
+                is_cancelled = True
+                break
+
+        if is_cancelled:
+            if original_title in existing_events_dict:
+                event_to_delete = existing_events_dict[original_title]
+                print(f"Event '{original_title}' was cancelled. Deleting from Google Calendar...")
+                delete_event(calendar_service, event_to_delete['id'])
+            else:
+                print(f"Cancelled event '{original_title}' not found in Google Calendar. Skipping.")
+            continue
+
         start_time_str = meeting["start_time"]
         end_time_str = meeting["end_time"]
         date_str = meeting["date"]
@@ -136,6 +156,7 @@ def update_meetings(meetings_data):
                 print(f"Event '{title}' already exists and is up to date. Skipping.")
             continue
 
+        # If the event is not cancelled and does not exist, create it.
         print(f"Creating Google Calendar event for '{title}' on {meeting_date}...")
         create_event(calendar_service, title, start_time_str, end_time_str, meeting_date, user_email, user_timezone)
 

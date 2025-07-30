@@ -101,6 +101,15 @@ def update_event(service, event_id, summary, start_time_str, end_time_str, date,
         print(f"An error occurred while updating event '{summary}': {error}")
 
 
+def delete_event(service, event_id):
+    """Deletes an event from the Google Calendar."""
+    try:
+        service.events().delete(calendarId='primary', eventId=event_id).execute()
+        print(f"Event with ID {event_id} deleted.")
+    except HttpError as error:
+        print(f"An error occurred while deleting event ID {event_id}: {error}")
+
+
 def create_event(service, summary, start_time_str, end_time_str, date, user_email, time_zone):
     """Creates an event in the Google Calendar."""
 
