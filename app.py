@@ -171,6 +171,12 @@ def update_meetings(meetings_data):
             print(f"Could not parse date or time for event '{title}': {e}. Skipping.")
             continue
 
+        # Check if the meeting is in the past and skip if it is
+        meeting_start_datetime = datetime.combine(meeting_date, start_time_obj)
+        if meeting_start_datetime < datetime.now():
+            print(f"Event '{title}' is in the past. Skipping.")
+            continue
+
         if title in existing_events_dict:
             existing_event = existing_events_dict[title]
 
