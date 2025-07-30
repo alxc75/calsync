@@ -1,2 +1,7 @@
 .calsync
 user_data/
+__pycache__/
+
+# Google OAuth
+token.json
+credentials.json

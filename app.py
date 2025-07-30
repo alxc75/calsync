@@ -2,6 +2,9 @@ import asyncio
 import re
 import os
 from playwright.async_api import async_playwright
+from datetime import datetime
+from google_calendar import get_calendar_service, create_event
+import json
 
 async def get_meetings(freq='week'):
     """
@@ -11,9 +14,9 @@ async def get_meetings(freq='week'):
         freq (str): Frequency of the calendar view ('day', 'week' or 'month'). Default is 'week'.
 
     Returns:
-        None
+        list: A list of dictionaries, where each dictionary represents a meeting.
     """
-
+    meetings_data = []
     async with async_playwright() as p:
         user_data_dir = "./user_data"
         if not os.path.exists(user_data_dir):
@@ -37,19 +40,67 @@ async def get_meetings(freq='week'):
             if button:
                 aria_label = await button.get_attribute("aria-label")
                 if aria_label:
-                    # Regex to extract title, start time, and end time
-                    match = re.match(r"([^,]+), (\d{1,2}:\d{2} [AP]M) to (\d{1,2}:\d{2} [AP]M)", aria_label)
+                    # Regex to extract title, start time, end time, and date
+                    match = re.match(r"([^,]+), (\d{1,2}:\d{2} [AP]M) to (\d{1,2}:\d{2} [AP]M), ([^,]+, [^,]+, \d{4})", aria_label)
                     if match:
                         title = match.group(1).strip()
                         start_time = match.group(2)
                         end_time = match.group(3)
+                        date_str = match.group(4)
 
-                        print("\n--- Meeting ---")
-                        print(f"Title: {title}")
-                        print(f"Start Time: {start_time}")
-                        print(f"End Time: {end_time}")
+                        meetings_data.append({
+                            "title": title,
+                            "date": date_str,
+                            "start_time": start_time,
+                            "end_time": end_time
+                        })
 
         await context.close()
+    return meetings_data
+
+def update_meetings(meetings_data):
+    """
+    Updates the Google Calendar with the provided meeting data.
+
+    Args:
+        meetings_data (list): A list of meeting dictionaries from get_meetings.
+    """
+    print("\nAuthenticating with Google Calendar...")
+    calendar_service, user_email = get_calendar_service()
+    if not calendar_service:
+        print("Failed to authenticate with Google Calendar. Exiting.")
+        return
+
+    print(f"\nFound {len(meetings_data)} meetings to sync.")
+    for meeting in meetings_data:
+        title = meeting["title"]
+        start_time = meeting["start_time"]
+        end_time = meeting["end_time"]
+        date_str = meeting["date"]
+
+        try:
+            # The date format from outlook is like 'Wednesday, July 30, 2025'
+            meeting_date = datetime.strptime(date_str, "%A, %B %d, %Y").date()
+        except ValueError:
+            print(f"Could not parse date: {date_str}. Skipping event '{title}'.")
+            continue
+
+        print(f"Creating Google Calendar event for '{title}' on {meeting_date}...")
+        create_event(calendar_service, title, start_time, end_time, meeting_date, user_email)
+
+async def main():
+    """Main function to run the calendar sync process."""
+    meetings = await get_meetings('day')
+    print(json.dumps(meetings, indent=4, ensure_ascii=False))
+    if meetings:
+        update_meetings(meetings)
+    else:
+        print("No meetings found to sync.")
 
 if __name__ == "__main__":
-    asyncio.run(get_meetings('day'))
+    print("""
+######################################################
+\t\tWelcome to Calsync!
+######################################################
+""")
+    asyncio.run(main())
