@@ -66,7 +66,7 @@ def update_meetings(meetings_data):
         meetings_data (list): A list of meeting dictionaries from get_meetings.
     """
     print("\nAuthenticating with Google Calendar...")
-    calendar_service, user_email = get_calendar_service()
+    calendar_service, user_email, user_timezone = get_calendar_service()
     if not calendar_service:
         print("Failed to authenticate with Google Calendar. Exiting.")
         return
@@ -86,7 +86,7 @@ def update_meetings(meetings_data):
             continue
 
         print(f"Creating Google Calendar event for '{title}' on {meeting_date}...")
-        create_event(calendar_service, title, start_time, end_time, meeting_date, user_email)
+        create_event(calendar_service, title, start_time, end_time, meeting_date, user_email, user_timezone)
 
 async def main():
     """Main function to run the calendar sync process."""

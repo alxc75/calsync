@@ -8,7 +8,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = ["https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/userinfo.email", "openid"]
+SCOPES = ["https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/calendar.readonly", "openid"]
 
 
 def get_calendar_service():
@@ -37,21 +37,24 @@ def get_calendar_service():
     try:
         service = build("calendar", "v3", credentials=creds)
 
-        # Directly use the userinfo endpoint to get the email, which is more reliable.
+        # Get user's email and timezone
         user_info_service = build('oauth2', 'v2', credentials=creds)
         user_info = user_info_service.userinfo().get().execute()
         user_email = user_info.get('email')
 
-        if not user_email:
-            print("Could not retrieve user email. Exiting.")
-            return None, None
+        calendar_info = service.calendars().get(calendarId='primary').execute()
+        user_timezone = calendar_info.get('timeZone')
 
-        return service, user_email
+        if not user_email or not user_timezone:
+            print("Could not retrieve user email or timezone. Exiting.")
+            return None, None, None
+
+        return service, user_email, user_timezone
     except HttpError as error:
         print(f"An error occurred: {error}")
-        return None, None
+        return None, None, None
 
-def create_event(service, summary, start_time_str, end_time_str, date, user_email):
+def create_event(service, summary, start_time_str, end_time_str, date, user_email, time_zone):
     """Creates an event in the Google Calendar."""
 
     start_datetime = datetime.datetime.combine(date, datetime.datetime.strptime(start_time_str, "%I:%M %p").time())
@@ -61,11 +64,11 @@ def create_event(service, summary, start_time_str, end_time_str, date, user_emai
         'summary': summary,
         'start': {
             'dateTime': start_datetime.isoformat(),
-            'timeZone': 'America/Los_Angeles', # You might want to make this dynamic
+            'timeZone': time_zone,
         },
         'end': {
             'dateTime': end_datetime.isoformat(),
-            'timeZone': 'America/Los_Angeles', # You might want to make this dynamic
+            'timeZone': time_zone,
         },
         'attendees': [
             {'email': user_email},
