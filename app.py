@@ -21,6 +21,56 @@ def parse_date_string(date_str):
         return parsed_date.date()
     return None
 
+def load_user_config():
+    """
+    Loads user configuration from user.json.
+    If the file doesn't exist, it creates it and prompts the user for their email.
+    It also handles migrating from an old ignore.txt file.
+    """
+    config_path = "user.json"
+    config = {"user_email": "", "ignore_list": []}
+
+    # If user.json exists, load it
+    if os.path.exists(config_path):
+        with open(config_path, "r") as f:
+            try:
+                config = json.load(f)
+            except json.JSONDecodeError:
+                print(f"Warning: {config_path} is corrupted. A new one will be created.")
+
+
+    # If email is missing, prompt for it
+    if not config.get("user_email"):
+        email = input("Please enter your Google Calendar email address (this is used to skip events you're already invited to): ")
+        config["user_email"] = email
+        # Save back to file
+        with open(config_path, "w") as f:
+            json.dump(config, f, indent=4)
+        print(f"Configuration saved to {config_path}")
+
+    # Handle migration from ignore.txt
+    if os.path.exists("ignore.txt"):
+        print("\nFound ignore.txt. Migrating keywords to user.json...")
+        with open("ignore.txt", "r") as f:
+            ignore_list_from_file = [line.strip() for line in f if line.strip()]
+
+        # Add to config's ignore_list, avoiding duplicates
+        existing_ignores = set(config.get("ignore_list", []))
+        new_ignores = [item for item in ignore_list_from_file if item not in existing_ignores]
+        config["ignore_list"].extend(new_ignores)
+
+        with open(config_path, "w") as f:
+            json.dump(config, f, indent=4)
+
+        # Rename ignore.txt to avoid re-migration
+        try:
+            os.rename("ignore.txt", "ignore.txt.migrated")
+            print("Successfully migrated ignore.txt. It has been renamed to 'ignore.txt.migrated'.")
+        except OSError as e:
+            print(f"Could not rename ignore.txt: {e}")
+
+    return config
+
 async def get_meetings(freq='week'):
     """
     Fetch meetings from Outlook calendar using Playwright.
@@ -124,13 +174,14 @@ async def get_meetings(freq='week'):
         print("\nWindow closed. Outlook sync process interrupted.")
         return [] # Return an empty list to exit cleanly
 
-def update_meetings(meetings_data):
+def update_meetings(meetings_data, user_config=None):
     """
     Updates the Google Calendar with the provided meeting data.
 
     Args:
         meetings_data (list): A list of meeting dictionaries from get_meetings.
     """
+
     print("\nAuthenticating with Google Calendar...")
     calendar_service, user_email, user_timezone = get_calendar_service()
     if not calendar_service:
@@ -141,13 +192,10 @@ def update_meetings(meetings_data):
         print("No meetings to sync.")
         return
 
-    # Load ignore list
-    ignore_list = []
-    if os.path.exists("ignore.txt"):
-        with open("ignore.txt", "r") as f:
-            ignore_list = [line.strip() for line in f if line.strip()]
-        if ignore_list:
-            print(f"\nLoaded {len(ignore_list)} strings from ignore.txt. Meetings containing these strings will be ignored.")
+    # Load user config and ignore list
+    ignore_list = user_config.get("ignore_list", [])
+    if ignore_list:
+        print(f"\nLoaded {len(ignore_list)} strings from ignore_list. Meetings containing these strings will be ignored.")
 
     # Determine the date range of the scraped meetings
     dates = [parse_date_string(m["date"]) for m in meetings_data]
@@ -272,10 +320,13 @@ async def main():
                         help="The calendar view to sync: 'day', 'week', or 'month'. Defaults to 'week'.")
     args = parser.parse_args()
 
+    print("Loading user configuration...")
+    user_config = load_user_config()
+
     meetings = await get_meetings(args.frequency)
     # print(json.dumps(meetings, indent=4, ensure_ascii=False))
     if meetings:
-        update_meetings(meetings)
+        update_meetings(meetings, user_config=user_config)
     else:
         print("No meetings found to sync.")
 
