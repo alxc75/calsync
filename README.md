@@ -33,7 +33,7 @@ To get started, open a terminal window in your `calsync` folder and run
 ```bash
 python app.py
 ```
-Note that you can also pass a frequency argument (day/week/month) to customize the date range to update. For example:
+Note that you can also pass a frequency argument (day/week/month) to customize the date range to update. Defualt For example:
 ```bash
 python app.py week
 ```

@@ -69,11 +69,11 @@ def get_events(service, time_min, time_max):
         print(f"An error occurred while fetching events: {error}")
         return []
 
-def update_event(service, event_id, summary, start_time_str, end_time_str, date, user_email, time_zone, description):
+def update_event(service, event_id, summary, start_time_obj, end_time_obj, date, user_email, time_zone, description):
     """Updates an existing event in the Google Calendar."""
 
-    start_datetime = datetime.datetime.combine(date, datetime.datetime.strptime(start_time_str, "%I:%M %p").time())
-    end_datetime = datetime.datetime.combine(date, datetime.datetime.strptime(end_time_str, "%I:%M %p").time())
+    start_datetime = datetime.datetime.combine(date, start_time_obj)
+    end_datetime = datetime.datetime.combine(date, end_time_obj)
 
     event_body = {
         'summary': summary,
@@ -111,11 +111,11 @@ def delete_event(service, event_id):
         print(f"An error occurred while deleting event ID {event_id}: {error}")
 
 
-def create_event(service, summary, start_time_str, end_time_str, date, user_email, time_zone, description):
+def create_event(service, summary, start_time_obj, end_time_obj, date, user_email, time_zone, description):
     """Creates an event in the Google Calendar."""
 
-    start_datetime = datetime.datetime.combine(date, datetime.datetime.strptime(start_time_str, "%I:%M %p").time())
-    end_datetime = datetime.datetime.combine(date, datetime.datetime.strptime(end_time_str, "%I:%M %p").time())
+    start_datetime = datetime.datetime.combine(date, start_time_obj)
+    end_datetime = datetime.datetime.combine(date, end_time_obj)
 
     event = {
         'summary': summary,
