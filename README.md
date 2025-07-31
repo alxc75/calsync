@@ -53,6 +53,6 @@ You can also add keywords you would like to skip in the automatically generated 
 ```json
 {
     "user_email": "youremail@example.com",
-    "ignore_list": ["daily", "weekly", "test"]
+    "ignore_list": ["daily", "weekly"]
 }
 ```
