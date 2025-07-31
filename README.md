@@ -20,7 +20,7 @@ To do so, you will need to create a personal account on [Google's Cloud Console]
 
 Create a new project at the top of your screen and enable the [Calendar API](https://console.cloud.google.com/marketplace/product/google/calendar-json.googleapis.com) (it's free).
 
-Then head to the [Credentials](https://console.cloud.google.com/apis/credentials) screen. Click the "Create credentials" button at the top and then "OAuth client ID".
+Then head to the [Credentials](https://console.cloud.google.com/apis/credentials) screen. Click the "Create credentials" button at the top and then "OAuth client ID". You will most likely need to configure the OAuth screen first. It will ask for the app name and your email address.
 Then, select `Desktop` for the app type and give it a name (the name itself doesn't matter).
 
 A popup will appear once you click on Create. **Click the `Download JSON` button**. Then, rename that file to `credentials.json` and drop it into the `calsync` folder your previously downloaded.
