@@ -12,7 +12,7 @@
 First download the code using the green `Code` button above or use `git clone`. Then install the dependencies:
 ```bash
 pip install -r requirements.txt
-playwright install chrome
+playwright install
 ```
 
 Now you'll need to get the credentials to modify your Google Calendar.
