@@ -1,7 +1,9 @@
 import asyncio
 import re
 import os
+import argparse
 from playwright.async_api import async_playwright
+from playwright._impl._errors import TargetClosedError
 from datetime import datetime, time, timedelta
 from google_calendar import get_calendar_service, create_event, get_events, update_event, delete_event
 import json
@@ -17,91 +19,95 @@ async def get_meetings(freq='week'):
         list: A list of dictionaries, where each dictionary represents a meeting.
     """
     meetings_data = []
-    async with async_playwright() as p:
-        user_data_dir = "./user_data"
-        if not os.path.exists(user_data_dir):
-            os.makedirs(user_data_dir)
+    try:
+        async with async_playwright() as p:
+            user_data_dir = "./user_data"
+            if not os.path.exists(user_data_dir):
+                os.makedirs(user_data_dir)
 
-        context = await p.chromium.launch_persistent_context(user_data_dir, headless=False)
-        page = await context.new_page()
+            context = await p.chromium.launch_persistent_context(user_data_dir, headless=False)
+            page = await context.new_page()
 
-        print("Please log in to your Outlook account in the browser window if required...")
-        await page.goto("https://outlook.office.com/calendar/view/" + freq)
+            print("Please log in to your Outlook account in the browser window if required...")
+            await page.goto("https://outlook.office.com/calendar/view/" + freq)
 
-        # Wait for the user to log in and the calendar to load
-        await page.wait_for_selector(".calendar-SelectionStyles-resizeBoxParent", timeout=120000) # 2 minutes timeout
+            # Wait for the user to log in and the calendar to load
+            await page.wait_for_selector(".calendar-SelectionStyles-resizeBoxParent", timeout=120000) # 2 minutes timeout
 
-        meeting_elements = await page.query_selector_all(".calendar-SelectionStyles-resizeBoxParent")
+            meeting_elements = await page.query_selector_all(".calendar-SelectionStyles-resizeBoxParent")
 
-        print(f"Found {len(meeting_elements)} meetings this {freq}.")
+            print(f"Found {len(meeting_elements)} meetings this {freq}.")
 
-        for meeting_element in meeting_elements:
-            try:
-                button = await meeting_element.query_selector("div[role='button']")
-                if not button:
-                    continue
+            for meeting_element in meeting_elements:
+                try:
+                    button = await meeting_element.query_selector("div[role='button']")
+                    if not button:
+                        continue
 
-                # 1. Click event to open preview
-                await button.click()
+                    # 1. Click event to open preview
+                    await button.click()
 
-                # 2. Click "View event" to open full details
-                view_event_selector = "button[aria-label='View event']"
-                await page.wait_for_selector(view_event_selector, timeout=5000)
-                view_event_button = await page.query_selector(view_event_selector)
-                if view_event_button:
-                    await view_event_button.click()
+                    # 2. Click "View event" to open full details
+                    view_event_selector = "button[aria-label='View event']"
+                    await page.wait_for_selector(view_event_selector, timeout=5000)
+                    view_event_button = await page.query_selector(view_event_selector)
+                    if view_event_button:
+                        await view_event_button.click()
 
-                # 3. Scrape description from full details view
-                description_selector = "div[id^='UniqueMessageBody_']"
-                await page.wait_for_selector(description_selector, timeout=5000)
-                description_element = await page.query_selector(description_selector)
-                description = await description_element.inner_html() if description_element else ""
+                    # 3. Scrape description from full details view
+                    description_selector = "div[id^='UniqueMessageBody_']"
+                    await page.wait_for_selector(description_selector, timeout=5000)
+                    description_element = await page.query_selector(description_selector)
+                    description = await description_element.inner_html() if description_element else ""
 
-                # Clean the HTML description
-                if description:
-                    # 1. Replace all div and p tags (and their closing tags) with a single line break.
-                    # This handles complex tags like <div class="..."> or <p style="...">
-                    description = re.sub(r'</?p.*?>', '<br>', description, flags=re.IGNORECASE)
-                    description = re.sub(r'</?div.*?>', '<br>', description, flags=re.IGNORECASE)
+                    # Clean the HTML description
+                    if description:
+                        # 1. Replace all div and p tags (and their closing tags) with a single line break.
+                        # This handles complex tags like <div class="..."> or <p style="...">
+                        description = re.sub(r'</?p.*?>', '<br>', description, flags=re.IGNORECASE)
+                        description = re.sub(r'</?div.*?>', '<br>', description, flags=re.IGNORECASE)
 
-                    # 2. Collapse any instance of multiple (two or more) line breaks into just one.
-                    description = re.sub(r'(<br\s*/?>\s*){2,}', '<br>', description)
+                        # 2. Collapse any instance of multiple (two or more) line breaks into just one.
+                        description = re.sub(r'(<br\s*/?>\s*){2,}', '<br>', description)
 
-                    # 3. Remove any leading or trailing line breaks that might be left.
-                    description = description.strip().strip('<br>').strip()
+                        # 3. Remove any leading or trailing line breaks that might be left.
+                        description = description.strip().strip('<br>').strip()
 
-                # Scrape original event details from the button's aria-label
-                aria_label = await button.get_attribute("aria-label")
-                if aria_label:
-                    # Regex to extract title, start time, end time, and date
-                    match = re.match(r"([^,]+), (\d{1,2}:\d{2} [AP]M) to (\d{1,2}:\d{2} [AP]M), ([^,]+, [^,]+, \d{4})", aria_label)
-                    if match:
-                        title = match.group(1).strip()
-                        start_time = match.group(2)
-                        end_time = match.group(3)
-                        date_str = match.group(4)
+                    # Scrape original event details from the button's aria-label
+                    aria_label = await button.get_attribute("aria-label")
+                    if aria_label:
+                        # Regex to extract title, start time, end time, and date
+                        match = re.match(r"([^,]+), (\d{1,2}:\d{2} [AP]M) to (\d{1,2}:\d{2} [AP]M), ([^,]+, [^,]+, \d{4})", aria_label)
+                        if match:
+                            title = match.group(1).strip()
+                            start_time = match.group(2)
+                            end_time = match.group(3)
+                            date_str = match.group(4)
 
-                        meetings_data.append({
-                            "title": title,
-                            "date": date_str,
-                            "start_time": start_time,
-                            "end_time": end_time,
-                            "description": description
-                        })
+                            meetings_data.append({
+                                "title": title,
+                                "date": date_str,
+                                "start_time": start_time,
+                                "end_time": end_time,
+                                "description": description
+                            })
 
-            except Exception as e:
-                print(f"Could not process an event, skipping. Error: {e}")
-            finally:
-                # 4. Close the details view to go back
-                close_button = await page.query_selector("button[aria-label='Close']")
-                if close_button:
-                    await close_button.click()
-                    # Add a small delay to ensure the modal is closed before the next iteration
-                    await page.wait_for_timeout(500)
+                except Exception as e:
+                    print(f"Could not process an event, skipping. Error: {e}")
+                finally:
+                    # 4. Close the details view to go back
+                    close_button = await page.query_selector("button[aria-label='Close']")
+                    if close_button:
+                        await close_button.click()
+                        # Add a small delay to ensure the modal is closed before the next iteration
+                        await page.wait_for_timeout(500)
 
 
-        await context.close()
-    return meetings_data
+            await context.close()
+        return meetings_data
+    except TargetClosedError:
+        print("\nWindow closed. Outlook sync process interrupted.")
+        return [] # Return an empty list to exit cleanly
 
 def update_meetings(meetings_data):
     """
@@ -235,7 +241,12 @@ def update_meetings(meetings_data):
 
 async def main():
     """Main function to run the calendar sync process."""
-    meetings = await get_meetings('week')
+    parser = argparse.ArgumentParser(description="Sync your Outlook calendar to Google Calendar.")
+    parser.add_argument('frequency', type=str, nargs='?', default='week', choices=['day', 'week', 'month'],
+                        help="The calendar view to sync: 'day', 'week', or 'month'. Defaults to 'week'.")
+    args = parser.parse_args()
+
+    meetings = await get_meetings(args.frequency)
     # print(json.dumps(meetings, indent=4, ensure_ascii=False))
     if meetings:
         update_meetings(meetings)
