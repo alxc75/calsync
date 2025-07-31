@@ -114,14 +114,31 @@ async def get_meetings(freq='week'):
                     view_event_selector = "button[aria-label='View event'], button[aria-label='Afficher l’événement']"
                     await page.wait_for_selector(view_event_selector, timeout=5000)
                     view_event_button = await page.query_selector(view_event_selector)
+                    # 3. Scrape description and participants
+                    participants = []
+                    description = ""
                     if view_event_button:
                         await view_event_button.click()
 
-                    # 3. Scrape description from full details view
-                    description_selector = "div[id^='UniqueMessageBody_']"
-                    await page.wait_for_selector(description_selector, timeout=3000)
-                    description_element = await page.query_selector(description_selector)
-                    description = await description_element.inner_html() if description_element else ""
+                        # Scrape description
+                        description_selector = "div[id^='UniqueMessageBody_']"
+                        await page.wait_for_selector(description_selector, timeout=3000)
+                        description_element = await page.query_selector(description_selector)
+                        description = await description_element.inner_html() if description_element else ""
+
+                        # Scrape participants
+                        try:
+                            participants_selector = "span.fui-Persona__primaryText"
+                            # Wait for participants to be visible
+                            await page.wait_for_selector(participants_selector, timeout=2000)
+                            participant_elements = await page.query_selector_all(participants_selector)
+                            for p_element in participant_elements:
+                                email = await p_element.inner_text()
+                                if email:
+                                    participants.append(email.strip())
+                        except Exception:
+                            # It's okay if we can't find participants, we can proceed without them
+                            pass
 
                     # Clean the HTML description
                     if description:
@@ -153,7 +170,8 @@ async def get_meetings(freq='week'):
                                 "date": date_str,
                                 "start_time": start_time,
                                 "end_time": end_time,
-                                "description": description
+                                "description": description,
+                                "participants": participants
                             })
 
                 except Exception as e:
@@ -193,7 +211,10 @@ def update_meetings(meetings_data, user_config=None):
         return
 
     # Load user config and ignore list
+    user_config = user_config or load_user_config()
     ignore_list = user_config.get("ignore_list", [])
+    user_email_to_check = user_config.get("user_email", "").lower()
+
     if ignore_list:
         print(f"\nLoaded {len(ignore_list)} strings from ignore_list. Meetings containing these strings will be ignored.")
 
@@ -226,6 +247,12 @@ def update_meetings(meetings_data, user_config=None):
         # Check if the meeting title contains any string from the ignore list
         if any(ignore_str in title for ignore_str in ignore_list):
             print(f"Event '{title}' contains an ignored keyword. Skipping.")
+            continue
+
+        # Check if user's Google email is in the participants list
+        participants = meeting.get("participants", [])
+        if user_email_to_check and any(user_email_to_check == p.lower() for p in participants):
+            print(f"Event '{title}' is skipped because you are already a participant.")
             continue
 
         # Handle cancelled events
