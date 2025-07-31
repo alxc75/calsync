@@ -158,7 +158,7 @@ async def get_meetings(freq='week'):
                     if aria_label:
                         # Regex to handle English ('to') and French ('à') time separators.
                         # This version is more robust and handles commas in the title and different date formats.
-                        match = re.match(r"(.*?),\s*(\d{1,2}:\d{2}(?: [AP]M)?)\s*(?:to|à)\s*(\d{1,2}:\d{2}(?: [AP]M)?),\s*(.+?)(?:, Microsoft Teams Meeting|, .*Busy|, .*Occupé\(e\)|$)", aria_label)
+                        match = re.match(r"(.*?),\s*(\d{1,2}:\d{2}(?: [AP]M)?)\s*(?:to|à)\s*(\d{1,2}:\d{2}(?: [AP]M)?),\s*(\w+,\s+\w+\s+\d{1,2},\s+\d{4}|\w+\s+\d{1,2}\s+\w+\s+\d{4})", aria_label)
                         if match:
                             title = match.group(1).strip()
                             start_time = match.group(2).strip()
