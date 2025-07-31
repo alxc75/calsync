@@ -7,36 +7,19 @@ from playwright.async_api import async_playwright
 from playwright._impl._errors import TargetClosedError
 from datetime import datetime, time, timedelta
 from google_calendar import get_calendar_service, create_event, get_events, update_event, delete_event
+import dateparser
 import json
 
 def parse_date_string(date_str):
     """
-    Parses a date string that could be in English or French format.
+    Parses a date string that could be in English or French format using the dateparser library.
     """
-    original_locale = locale.getlocale(locale.LC_TIME)
-    # Try parsing English format first: "Weekday, Month Day, Year"
-    try:
-        return datetime.strptime(date_str, "%A, %B %d, %Y").date()
-    except ValueError:
-        # If English fails, try French format: "Weekday Day Month Year"
-        try:
-            # For Windows, the locale might be 'fra' or 'french'
-            # For macOS/Linux, it's 'fr_FR.UTF-8'
-            try:
-                locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
-            except locale.Error:
-                try:
-                    locale.setlocale(locale.LC_TIME, 'fra')
-                except locale.Error:
-                    print("French locale not supported on this system. Cannot parse French dates.")
-                    return None
-            return datetime.strptime(date_str, "%A %d %B %Y").date()
-        except (ValueError, locale.Error):
-            # If both fail, return None
-            return None
-        finally:
-            # Always reset locale
-            locale.setlocale(locale.LC_TIME, original_locale)
+    # The dateparser library can automatically handle various formats and locales.
+    # It will return a datetime object if successful, or None if it fails.
+    parsed_date = dateparser.parse(date_str)
+    if parsed_date:
+        return parsed_date.date()
+    return None
 
 async def get_meetings(freq='week'):
     """
@@ -107,20 +90,13 @@ async def get_meetings(freq='week'):
                     aria_label = await button.get_attribute("aria-label")
                     if aria_label:
                         # Regex to handle English ('to') and French ('à') time separators.
-                        match = re.match(r"([^,]+),\s*(\d{1,2}:\d{2}(?: [AP]M)?)\s*(?:to|à)\s*(\d{1,2}:\d{2}(?: [AP]M)?),\s*(.*)", aria_label)
+                        # This version is more robust and handles commas in the title and different date formats.
+                        match = re.match(r"(.*?),\s*(\d{1,2}:\d{2}(?: [AP]M)?)\s*(?:to|à)\s*(\d{1,2}:\d{2}(?: [AP]M)?),\s*(.+?)(?:, Microsoft Teams Meeting|, .*Busy|, .*Occupé\(e\)|$)", aria_label)
                         if match:
                             title = match.group(1).strip()
                             start_time = match.group(2).strip()
                             end_time = match.group(3).strip()
-                            # The rest of the string is the date part, which might have other info
-                            date_str_full = match.group(4).strip()
-
-                            # Clean up date_str to only get the date part by removing trailing info
-                            date_match = re.match(r"([^,]+(?:, \d{4}| \d{4}))", date_str_full)
-                            if date_match:
-                                date_str = date_match.group(1).strip().rstrip(',')
-                            else:
-                                date_str = date_str_full # Fallback
+                            date_str = match.group(4).strip()
 
                             meetings_data.append({
                                 "title": title,
@@ -129,8 +105,6 @@ async def get_meetings(freq='week'):
                                 "end_time": end_time,
                                 "description": description
                             })
-                        else:
-                            print(f"DEBUG: Regex did not match aria-label: {aria_label}")
 
                 except Exception as e:
                     print(f"Could not process an event, skipping. Error: {e}")
