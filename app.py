@@ -21,11 +21,15 @@ def parse_date_string(date_str):
         return parsed_date.date()
     return None
 
-def load_user_config():
+def load_user_config(email=None):
     """
     Loads user configuration from user.json.
-    If the file doesn't exist, it creates it and prompts the user for their email.
+    If the file doesn't exist, it creates it and prompts the user for their email,
+    unless an email is provided via parameter.
     It also handles migrating from an old ignore.txt file.
+
+    Args:
+        email (str, optional): Email to use instead of prompting the user.
     """
     config_path = "user.json"
     config = {"user_email": "", "ignore_list": []}
@@ -38,11 +42,15 @@ def load_user_config():
             except json.JSONDecodeError:
                 print(f"Warning: {config_path} is corrupted. A new one will be created.")
 
-
-    # If email is missing, prompt for it
+    # If email is missing, use provided email or prompt for it
     if not config.get("user_email"):
-        email = input("Please enter your Google Calendar email address (this is used to skip events you're already invited to): ")
-        config["user_email"] = email
+        if email:
+            config["user_email"] = email
+            print(f"Using provided email address: {email}")
+        else:
+            email = input("Please enter your Google Calendar email address (this is used to skip events you're already invited to): ")
+            config["user_email"] = email
+
         # Save back to file
         with open(config_path, "w") as f:
             json.dump(config, f, indent=4)
@@ -345,10 +353,11 @@ async def main():
     parser = argparse.ArgumentParser(description="Sync your Outlook calendar to Google Calendar.")
     parser.add_argument('frequency', type=str, nargs='?', default='week', choices=['day', 'week', 'month'],
                         help="The calendar view to sync: 'day', 'week', or 'month'. Defaults to 'week'.")
+    parser.add_argument('--email', type=str, help="Your client email address. Use this to run in non-interactive mode.")
     args = parser.parse_args()
 
     print("Loading user configuration...")
-    user_config = load_user_config()
+    user_config = load_user_config(email=args.email)
 
     meetings = await get_meetings(args.frequency)
     # print(json.dumps(meetings, indent=4, ensure_ascii=False))
