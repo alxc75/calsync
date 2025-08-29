@@ -9,14 +9,9 @@
 
 ## Installation
 
-First download the code using the green `Code` button above or use `git clone`. Then install the dependencies:
+First download the code using the green `Code` button above or use `git clone`.
 
-```bash
-pip install -r requirements.txt
-playwright install
-```
-
-Now you'll need to get the credentials to modify your Google Calendar.
+You'll need to get the credentials to modify your Google Calendar.
 To do so, you will need to create a personal account on [Google's Cloud Console](https://console.cloud.google.com/)
 
 Create a new project at the top of your screen and enable the [Calendar API](https://console.cloud.google.com/marketplace/product/google/calendar-json.googleapis.com) (it's free).
@@ -36,16 +31,23 @@ Below are installation and usage instructions.
 
 ### Script Usage
 
+First install the dependencies:
+
+```bash
+pip install -r requirements.txt
+playwright install
+```
+
 To get started, open a terminal window in your `calsync` folder and run
 
 ```bash
 python app.py
 ```
 
-Note that you can also pass a frequency argument (day/week/month) to customize the date range to update. Defualt For example:
+Note that you can also pass a frequency argument (day/week/month) to customize the date range to update. Default For example:
 
 ```bash
-python app.py week
+python app.py week # Get your events for the whole current week (or remaining days)
 ```
 
 First, you'll be asked to enter your Google Calendar address. It's used so that the event is skipped if you're already a participant on this address too. Otherwise you would have a duplicate in your Google Calendar.
@@ -83,8 +85,9 @@ Configuration settings include:
 - `frequency`: Calendar view to sync ('day', 'week', or 'month')
 - `ignore_list`: List of keywords in event titles that should be skipped during sync
 
-You can still override settings via command line arguments: `--frequency` or `--email` via the bash script serving as an entrypoint in the CalSync.app package.
-However, to update the settings above, I recommend running `edit_config.sh` instead. It's an interactive script and will prevent syntax errors. You can also use it to display your current configuration.
+You can still override settings via command line arguments: `--frequency` (optional) or `--email` via the bash script serving as an entrypoint in the CalSync.app package. Note: the `--email` argument will *not* change the Google account syncing, it's only used for headless environments.
+
+However, to update the settings above, I strongly recommend running `edit_config.sh` instead. It's an interactive script and will prevent syntax errors. You can also use it to display your current configuration.
 
 ```bash
 bash edit_config.sh
