@@ -146,6 +146,9 @@ print_config() {
         echo "Ignore List: [$ignore_list]"
     fi
     echo "---------------------"
+
+    echo "Config file location: $CONFIG_PATH"
+
 }
 
 # Main program loop
@@ -178,7 +181,8 @@ while true; do
     esac
 
     echo ""
-    echo "Config file location: $CONFIG_PATH"
-    echo ""
-    read -p "Press Enter to return to the menu..."
+    echo "Returning to menu in 2 seconds... (Press Enter to return immediately)"
+
+    # Set up a timeout that will continue after 2 seconds
+    read -t 2 -n 1
 done
