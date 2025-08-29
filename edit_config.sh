@@ -194,8 +194,16 @@ while true; do
     esac
 
     echo ""
-    echo "Returning to menu in 2 seconds... (Press Enter to return immediately)"
+    TIMER=3
+    # echo "Returning to menu in 3 seconds... (Press Enter to return immediately)"
 
-    # Set up a timeout that will continue after 2 seconds
-    read -t 2 -n 1
+    # Dynamic countdown timer
+    for i in 4 3 2 1; do
+        # Allow immediate return by pressing Enter
+        read -t 1 -n 1 && break
+        # Update the countdown if we're not at the last second
+        if [ $i -gt 1 ]; then
+            echo -ne "\rReturning to menu in $((i-1)) seconds... (Press Enter to return immediately) "
+        fi
+    done
 done
