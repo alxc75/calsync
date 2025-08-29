@@ -30,6 +30,12 @@ At this point, you're good to go!
 
 ## Usage
 
+There are two ways to run CalSync. Directly as a script (with terminal output) or as a MacOS App that you can put in your dock, just like a real app. So if you don't care about seeing the detail of which event was skipped or you just want a single button/app to click, choose the latter.
+
+Below are installation and usage instructions.
+
+### Script Usage
+
 To get started, open a terminal window in your `calsync` folder and run
 
 ```bash
@@ -53,6 +59,33 @@ You can also add keywords you would like to skip in the automatically generated 
 ```json
 {
     "user_email": "youremail@example.com",
+    "frequency": "day",
     "ignore_list": ["daily", "weekly"]
 }
+```
+
+### App Config
+
+To create the app, run the `create_app.sh` script in your terminal with this:
+
+```bash
+bash create_app.sh
+```
+
+The script will install its self-contained dependencies and ask you a few questions to configure the settings below.
+Once everything is done, a Finder window with the app will appear. You can then drag the app to your Dock.
+
+When you run CalSync as an app, the user config is located at `~/Library/Application Support/CalSync/user.json`. This file is created automatically when you run the `create_app.sh` script. There is a script to edit the config (see below).
+
+Configuration settings include:
+
+- `user_email`: Your Google Calendar email address (used to avoid duplicates)
+- `frequency`: Calendar view to sync ('day', 'week', or 'month')
+- `ignore_list`: List of keywords in event titles that should be skipped during sync
+
+You can still override settings via command line arguments: `--frequency` or `--email` via the bash script serving as an entrypoint in the CalSync.app package.
+However, to update the settings above, I recommend running `edit_config.sh` instead. It's an interactive script and will prevent syntax errors. You can also use it to display your current configuration.
+
+```bash
+bash edit_config.sh
 ```

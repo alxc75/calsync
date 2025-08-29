@@ -1,0 +1,156 @@
+import datetime
+import os.path
+
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
+# If modifying these scopes, delete the file token.json.
+SCOPES = ["https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/userinfo.email", "openid", "https://www.googleapis.com/auth/calendar.readonly"]
+
+
+def get_config_dir():
+    """Returns the path to the application's configuration directory."""
+    import pathlib
+    # Get the user's home directory
+    home = pathlib.Path.home()
+    # Define the standard Application Support path for the app
+    app_support_dir = home / "Library" / "Application Support" / "CalSync"
+    # Create the directory if it doesn't exist
+    app_support_dir.mkdir(parents=True, exist_ok=True)
+    return app_support_dir
+
+
+def get_calendar_service():
+    """Gets an authenticated Google Calendar service.
+    Returns the calendar service, user email, and timezone.
+    """
+    creds = None
+    # The file token.json stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first
+    # time.
+    token_path = get_config_dir() / "token.json"
+    if os.path.exists(token_path):
+        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            # Look for credentials.json in the current directory or config directory
+            credentials_path = "credentials.json"
+            if not os.path.exists(credentials_path):
+                credentials_path = get_config_dir() / "credentials.json"
+
+            flow = InstalledAppFlow.from_client_secrets_file(
+                credentials_path, SCOPES
+            )
+            creds = flow.run_local_server(port=0)
+        # Save the credentials for the next run
+        token_path = get_config_dir() / "token.json"
+        with open(token_path, "w") as token:
+            token.write(creds.to_json())
+
+    try:
+        service = build("calendar", "v3", credentials=creds)
+
+        # Get user's email and timezone
+        user_info_service = build('oauth2', 'v2', credentials=creds)
+        user_info = user_info_service.userinfo().get().execute()
+        user_email = user_info.get('email')
+
+        calendar_info = service.calendars().get(calendarId='primary').execute()
+        user_timezone = calendar_info.get('timeZone')
+
+        if not user_email or not user_timezone:
+            print("Could not retrieve user email or timezone. Exiting.")
+            return None, None, None
+
+        return service, user_email, user_timezone
+    except HttpError as error:
+        print(f"An error occurred: {error}")
+        return None, None, None
+
+def get_events(service, time_min, time_max):
+    """Fetch events from Google Calendar within a given time range."""
+    try:
+        events_result = service.events().list(
+            calendarId='primary',
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        return events_result.get('items', [])
+    except HttpError as error:
+        print(f"An error occurred while fetching events: {error}")
+        return []
+
+def update_event(service, event_id, summary, start_time_obj, end_time_obj, date, user_email, time_zone, description):
+    """Updates an existing event in the Google Calendar."""
+
+    start_datetime = datetime.datetime.combine(date, start_time_obj)
+    end_datetime = datetime.datetime.combine(date, end_time_obj)
+
+    event_body = {
+        'summary': summary,
+        'start': {
+            'dateTime': start_datetime.isoformat(),
+            'timeZone': time_zone,
+        },
+        'end': {
+            'dateTime': end_datetime.isoformat(),
+            'timeZone': time_zone,
+        },
+        'attendees': [
+            {'email': user_email},
+        ],
+        'description': description,
+    }
+    try:
+        updated_event = service.events().update(
+            calendarId='primary',
+            eventId=event_id,
+            body=event_body,
+            sendUpdates='all'
+        ).execute()
+        print(f"Event updated: {updated_event.get('htmlLink')}")
+    except HttpError as error:
+        print(f"An error occurred while updating event '{summary}': {error}")
+
+
+def delete_event(service, event_id):
+    """Deletes an event from the Google Calendar."""
+    try:
+        service.events().delete(calendarId='primary', eventId=event_id).execute()
+        print(f"Event with ID {event_id} deleted.")
+    except HttpError as error:
+        print(f"An error occurred while deleting event ID {event_id}: {error}")
+
+
+def create_event(service, summary, start_time_obj, end_time_obj, date, user_email, time_zone, description):
+    """Creates an event in the Google Calendar."""
+
+    start_datetime = datetime.datetime.combine(date, start_time_obj)
+    end_datetime = datetime.datetime.combine(date, end_time_obj)
+
+    event = {
+        'summary': summary,
+        'start': {
+            'dateTime': start_datetime.isoformat(),
+            'timeZone': time_zone,
+        },
+        'end': {
+            'dateTime': end_datetime.isoformat(),
+            'timeZone': time_zone,
+        },
+        'attendees': [
+            {'email': user_email},
+        ],
+        'description': description,
+    }
+
+    event = service.events().insert(calendarId='primary', body=event, sendUpdates='all').execute()
+    print(f"Event created: {event.get('htmlLink')}")
