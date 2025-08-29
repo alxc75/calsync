@@ -12,8 +12,8 @@ SCOPES = ["https://www.googleapis.com/auth/calendar.events", "https://www.google
 
 
 def get_calendar_service():
-    """Shows basic usage of the Google Calendar API.
-    Prints the start and name of the next 10 events on the user's calendar.
+    """Gets an authenticated Google Calendar service.
+    Returns the calendar service, user email, and timezone.
     """
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
