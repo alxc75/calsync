@@ -1,13 +1,8 @@
 #! /bin/bash
 
-echo """
-#####################################################
-        Welcome to the Calsync Config Editor!
-#####################################################
-"""
-
 CONFIG_PATH="$HOME/Library/Application Support/CalSync/user.json"
 
+# Check if config file exists
 if [ -f "$CONFIG_PATH" ]; then
     : # Config file exists
 else
@@ -15,12 +10,22 @@ else
     exit 1
 fi
 
-echo "What do you want to do?"
-echo "1. Edit User Email"
-echo "2. Edit Ignore List"
-echo "3. Edit Calendar Frequency"
-echo "4. Print Current Configuration"
-read -p "Please enter the number of your choice: " choice
+# Function to display the menu
+show_menu() {
+    clear
+    echo """
+#####################################################
+        Welcome to the Calsync Config Editor!
+#####################################################
+    """
+    echo "What do you want to do?"
+    echo "1. Edit User Email"
+    echo "2. Edit Ignore List"
+    echo "3. Edit Calendar Frequency"
+    echo "4. Print Current Configuration"
+    echo "5. Exit"
+    read -p "Please enter the number of your choice: " choice
+}
 
 edit_user_email() {
     current_email=$(grep -o '"user_email": *"[^"]*"' "$CONFIG_PATH" | cut -d '"' -f4)
@@ -143,27 +148,37 @@ print_config() {
     echo "---------------------"
 }
 
-# Process user choice
-case $choice in
-    1)
-        edit_user_email
-        echo "Configuration updated successfully!"
-        ;;
-    2)
-        edit_ignore_list
-        echo "Configuration updated successfully!"
-        ;;
-    3)
-        edit_frequency
-        echo "Configuration updated successfully!"
-        ;;
-    4)
-        print_config
-        ;;
-    *)
-        echo "Invalid option"
-        exit 1
-        ;;
-esac
+# Main program loop
+while true; do
+    show_menu
 
-echo "Config file location: $CONFIG_PATH"
+    case $choice in
+        1)
+            edit_user_email
+            echo "Configuration updated successfully!"
+            ;;
+        2)
+            edit_ignore_list
+            echo "Configuration updated successfully!"
+            ;;
+        3)
+            edit_frequency
+            echo "Configuration updated successfully!"
+            ;;
+        4)
+            print_config
+            ;;
+        5)
+            echo "Exiting..."
+            exit 0
+            ;;
+        *)
+            echo "Invalid option, please try again"
+            ;;
+    esac
+
+    echo ""
+    echo "Config file location: $CONFIG_PATH"
+    echo ""
+    read -p "Press Enter to return to the menu..."
+done
