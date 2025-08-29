@@ -77,16 +77,29 @@ edit_ignore_list() {
             fi
             ;;
         2)
+            echo "Current ignore list:"
+            grep -o '"ignore_list": *\[[^]]*\]' "$CONFIG_PATH" | sed 's/.*\[\(.*\)\]/\1/' | tr -d '"' | tr ',' '\n' | sed 's/^ */  - /'
             read -p "Enter calendar name to remove from ignore list: " remove_item
             if [ -n "$remove_item" ]; then
-                # Remove item from array
-                sed -i '' "s/\"$remove_item\", *//g" "$CONFIG_PATH"
-                sed -i '' "s/, *\"$remove_item\"//g" "$CONFIG_PATH"
-                sed -i '' "s/\"$remove_item\"//g" "$CONFIG_PATH"
-                # Fix any JSON syntax issues from removal
-                sed -i '' "s/\[\s*,/[/g" "$CONFIG_PATH"
-                sed -i '' "s/,\s*\]/]/g" "$CONFIG_PATH"
-                sed -i '' "s/,\s*,/,/g" "$CONFIG_PATH"
+                # Extract the current ignore_list as a string
+                current_list=$(grep -o '"ignore_list": *\[[^]]*\]' "$CONFIG_PATH" | sed 's/.*\[\(.*\)\]/\1/')
+
+                # Process the list properly
+                # Remove item at beginning of list: "Item", ...
+                processed_list=$(echo "$current_list" | sed "s/\"$remove_item\",\s*//g")
+                # Remove item in middle of list: ..., "Item", ...
+                processed_list=$(echo "$processed_list" | sed "s/,\s*\"$remove_item\"//g")
+                # Remove single item: "Item"
+                processed_list=$(echo "$processed_list" | sed "s/\"$remove_item\"//g")
+
+                # Fix any syntax issues
+                processed_list=$(echo "$processed_list" | sed 's/^,\s*//')  # Remove leading comma
+                processed_list=$(echo "$processed_list" | sed 's/,\s*$//')  # Remove trailing comma
+                processed_list=$(echo "$processed_list" | sed 's/,\s*,/,/g')  # Fix double commas
+
+                # Update the file with the cleaned list
+                sed -i '' "s/\"ignore_list\": *\[[^]]*\]/\"ignore_list\": [$processed_list]/" "$CONFIG_PATH"
+
                 echo "Removed '$remove_item' from ignore list"
             fi
             ;;
