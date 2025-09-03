@@ -13,6 +13,27 @@ echo "Creating the app..."
 mkdir -p $HOME/Applications/CalSync.app/Contents/MacOS/
 mkdir -p $HOME/Applications/CalSync.app/Contents/Resources/
 
+# Check current directory
+if [ "$PWD" == "$HOME" ]; then
+    echo "Detected that the script is running from the home directory."
+    echo "Looking for the CalSync folder in your Downloads folder..."
+    if [ -d "$HOME/Downloads/calsync-main" ]; then
+        echo "Found CalSync folder."
+        cd "$HOME/Downloads/calsync-main"
+    else
+        echo "CalSync folder not found in Downloads, searching entire home directory."
+        echo "Hint: this could take a while. You can stop the script with CTRL-C and move CalSync to your Downloads folder or use the 'cd' command to move to the CalSync directory."
+        location=$(find $HOME -type d -name "calsync-main" 2>/dev/null)
+        if [ -n "$location" ]; then
+            echo "Found CalSync folder at: $location"
+            cd "$location"
+        else
+            echo "CalSync folder not found. Please move the CalSync folder you downloaded to your Downloads directory or use the 'cd' command to move to the CalSync directory."
+            exit 1
+        fi
+    fi
+fi
+
 cp ./app/* $HOME/Applications/CalSync.app/Contents/MacOS/
 mv $HOME/Applications/CalSync.app/Contents/MacOS/Info.plist $HOME/Applications/CalSync.app/Contents/
 mv $HOME/Applications/CalSync.app/Contents/MacOS/AppIcon.icns $HOME/Applications/CalSync.app/Contents/Resources/
