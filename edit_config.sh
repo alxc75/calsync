@@ -22,7 +22,7 @@ show_menu() {
     echo "1. Edit User Email"
     echo "2. Edit Ignore List"
     echo "3. Edit Calendar Frequency"
-    echo "4. Print Current Configuration"
+    echo "4. Show Current Configuration"
     echo "5. Exit"
     read -p "Please enter the number of your choice: " choice
 }
